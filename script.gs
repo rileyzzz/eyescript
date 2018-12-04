@@ -9,7 +9,7 @@ include "gs.gs"
 include "Browser.gs"
 include "superstub.gs"
 include "asset.gs"
-include "multiplayergame.gs"
+include "MultiplayerGame.gs"
 include "soup.gs"
 
 class script isclass my_script
@@ -52,7 +52,7 @@ class script isclass my_script
       inherited();
         AddHandler(me, "Vehicle", "Coupled", "VehicleCoupleHandler");
 		//AddHandler(me, "Vehicle", "Decoupled", "VehicleDecoupleHandler");
-		AddHandler(me,"rileyzzzeyes","update","MultiUpdate");
+		AddHandler(me,"OnlineAccess","update","MultiUpdate");
 		
 		
 		
@@ -163,12 +163,12 @@ class script isclass my_script
 	
 	
 	
+	Soup usoup = msg.paramSoup;
 	
 	
-	
-	
-		SetMeshOrientation("eye_l", msg.GetNamedTagAsFloat("eyeud"), msg.GetNamedTagAsFloat("eyer"), msg.GetNamedTagAsFloat("eyelr"));
-		SetMeshOrientation("eye_r", msg.GetNamedTagAsFloat("eyeud"), msg.GetNamedTagAsFloat("eyer"), msg.GetNamedTagAsFloat("eyelr"));
+	//aw nice man you got my soup
+		SetMeshOrientation("eye_l", usoup.GetNamedTagAsFloat("eyeud"), usoup.GetNamedTagAsFloat("eyer"), usoup.GetNamedTagAsFloat("eyelr"));
+		SetMeshOrientation("eye_r", usoup.GetNamedTagAsFloat("eyeud"), usoup.GetNamedTagAsFloat("eyer"), usoup.GetNamedTagAsFloat("eyelr"));
 	}
 	 
 	 
@@ -204,7 +204,7 @@ class script isclass my_script
 
 			
 			//we gonna make sure its okay to send so we dont spam n stuff
-			if (eyelr != pithing*Str.UnpackFloat(lr) || eyeud != pithing*Str.UnpackFloat(ud)){
+			if (eyelr != pithing*Str.UnpackFloat(lr) or eyeud != pithing*Str.UnpackFloat(ud)){
 			eyelr = pithing*Str.UnpackFloat(lr);
 			eyeud = pithing*Str.UnpackFloat(ud);
 			
@@ -233,7 +233,9 @@ class script isclass my_script
 			
 			
 			//eat that soup
-			BroadcastGameplayMessage("rileyzzzeyes", "update", soup);
+			if (MultiplayerGame.IsActive ()) {
+			MultiplayerGame.BroadcastGameplayMessage("OnlineAccess", "update", soup);
+			}
 			SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
 			SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
 
