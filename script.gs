@@ -204,7 +204,7 @@ class script isclass my_script
 
 			
 			//we gonna make sure its okay to send so we dont spam n stuff
-			if (eyelr != pithing*Str.UnpackFloat(lr) or eyeud != pithing*Str.UnpackFloat(ud)){
+			//if (eyelr != pithing*Str.UnpackFloat(lr) or eyeud != pithing*Str.UnpackFloat(ud)){
 			eyelr = pithing*Str.UnpackFloat(lr);
 			eyeud = pithing*Str.UnpackFloat(ud);
 			
@@ -233,14 +233,14 @@ class script isclass my_script
 			
 			
 			//eat that soup
-			if (MultiplayerGame.IsActive ()) {
+			if (MultiplayerGame.IsActive()) {
 			MultiplayerGame.BroadcastGameplayMessage("OnlineAccess", "update", soup);
 			}
 			SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
 			SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
 
 	
-			}
+			//}
 			Sleep(0.04);
 		}
 	}
