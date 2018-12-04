@@ -9,6 +9,8 @@ include "gs.gs"
 include "Browser.gs"
 include "superstub.gs"
 include "asset.gs"
+include "multiplayergame.gs"
+include "soup.gs"
 
 class script isclass my_script
 {
@@ -50,6 +52,12 @@ class script isclass my_script
       inherited();
         AddHandler(me, "Vehicle", "Coupled", "VehicleCoupleHandler");
 		//AddHandler(me, "Vehicle", "Decoupled", "VehicleDecoupleHandler");
+		AddHandler(me,"rileyzzzeyes","update","MultiUpdate");
+		
+		
+		
+		
+		
 		
 		if(me.GetMyTrain())
         {
@@ -147,7 +155,21 @@ class script isclass my_script
 	 
 	 
 	 
-
+	void MultiUpdate(Message msg){
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+		SetMeshOrientation("eye_l", msg.GetNamedTagAsFloat("eyeud"), msg.GetNamedTagAsFloat("eyer"), msg.GetNamedTagAsFloat("eyelr"));
+		SetMeshOrientation("eye_r", msg.GetNamedTagAsFloat("eyeud"), msg.GetNamedTagAsFloat("eyer"), msg.GetNamedTagAsFloat("eyelr"));
+	}
 	 
 	 
 	 
@@ -168,6 +190,12 @@ class script isclass my_script
 		
 			//browser.SetTrainzText("lrtext","init");
 			
+			
+			
+			
+			
+			
+			
 			string lr = browser.GetElementProperty("lrslider", "value");
 
 			string ud = browser.GetElementProperty("udslider", "value");
@@ -175,11 +203,14 @@ class script isclass my_script
 			
 
 			
-			
-			
+			//we gonna make sure its okay to send so we dont spam n stuff
+			if (eyelr != pithing*Str.UnpackFloat(lr) || eyeud != pithing*Str.UnpackFloat(ud)){
 			eyelr = pithing*Str.UnpackFloat(lr);
 			eyeud = pithing*Str.UnpackFloat(ud);
-
+			
+			
+			
+			
 			//eyeud = eyeud + 0.01;
 			//eyelr = eyelr + 0.01;
 					
@@ -193,15 +224,21 @@ class script isclass my_script
 					
 					
 					
-					
-					
-					
-					
-		SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
-		SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
+			//make some soup
+			Soup soup = Constructors.NewSoup();       // this soup will be empty
+			
+			soup.SetNamedTag("eyeud",eyeud);
+			soup.SetNamedTag("eyelr",eyelr);
+			soup.SetNamedTag("eyer",eyer);
+			
+			
+			//eat that soup
+			BroadcastGameplayMessage("rileyzzzeyes", "update", soup);
+			SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
+			SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
 
 	
-	
+			}
 			Sleep(0.04);
 		}
 	}
