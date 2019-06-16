@@ -2,15 +2,16 @@
 include "locomotive.gs"
 include "world.gs"
 include "train.gs"
-include	"my_script.gs"
+include	"tttelocomotive.gs"
 include	"meshobject.gs"
 include "vehicle.gs"
 include "gs.gs"
 include "Browser.gs"
 include "superstub.gs"
 include "asset.gs"
+include "myscript.gs"
 
-class script isclass my_script
+class script isclass myscript
 {
 
 
@@ -20,6 +21,8 @@ class script isclass my_script
 	bool HasFocus = false;
 	bool Dial = false;
 	bool Dial2 = false;
+	bool recording = false;
+	bool playing = false;
 	float eyeframe;
     float eyerotation;
 	float version;
@@ -30,7 +33,8 @@ class script isclass my_script
 	thread void ScanBrowser(void);
 	thread void SliderCheck(void);
 	thread void DialCheck(void);
-	
+	thread void record(void);
+	thread void playanim(void);
 	void ConstructBrowser();
 	void sniffMyTrain(void);
 	void SliderApply(void);
@@ -43,7 +47,9 @@ class script isclass my_script
 	float eyer = 0.0;
 	
 	
-	
+	float[] lrframes;
+	float[] udframes;
+	float[] rframes;	
 	
 
    public void Init(void) {
@@ -62,7 +68,7 @@ class script isclass my_script
 
           version = World.GetTrainzVersion();
 //          HasFocus = true;
-		  
+		  //playing=false;
           VehicleMonitor();
           ScanBrowser();
 		  //SliderCheck();
@@ -95,8 +101,8 @@ class script isclass my_script
         if ( !browser )	browser = Constructors. NewBrowser();
 
         browser.SetCloseEnabled(true);
-	browser.SetWindowPosition(Interface.GetDisplayWidth()-240, Interface.GetDisplayHeight() - 315);
-	browser.SetWindowSize(400, 240);
+	browser.SetWindowPosition(Interface.GetDisplayWidth()-320, Interface.GetDisplayHeight() - 525);
+	browser.SetWindowSize(600, 220);
 //	browser.SetWindowTitle("Crane");
 //	browser.SetWindowStyle(Browser.STYLE_NO_FRAME);
 	browser.SetWindowVisible(true);
@@ -196,10 +202,10 @@ class script isclass my_script
 					
 					
 					
-					
+		if(playing == false){
 		SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
 		SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
-
+		}
 	
 	
 			Sleep(0.04);
@@ -261,6 +267,47 @@ thread void DialCheck()
 
 
 }
+
+
+
+
+
+thread void record()
+{
+	lrframes = new float[0];
+	udframes = new float[0];
+	rframes = new float[0];	
+	while(recording == true)
+	{
+		udframes[udframes.size()] = eyeud;
+		rframes[rframes.size()] = eyer;
+		lrframes[lrframes.size()] = eyelr;
+		Sleep(0.04);
+	}
+}
+
+
+thread void playanim()
+{
+playing = true;
+  int n;
+  for (n = 0; n < udframes.size(); n++) {
+	SetMeshOrientation("eye_l", udframes[n], rframes[n], lrframes[n]);
+	SetMeshOrientation("eye_r", udframes[n], rframes[n], lrframes[n]);
+	Sleep(0.04);
+  }
+  playing=false;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -399,7 +446,7 @@ thread void ScanBrowser() {
 			 		             on "Browser-URL", "live://eye-4", msg:	 // if browser link Slew Left is clicked
           if ( browser and msg.src == browser )
           {
-
+			//playing = false;
 			if (Dial == true)
 			{
 			Dial = false;
@@ -461,11 +508,32 @@ thread void ScanBrowser() {
              msg.src = null; 					 // clear message source to avoid confusion
              continue;
 
+				//RECORDING FEATURE
+		on "Browser-URL", "live://record", msg:	 // if browser link Slew Left is clicked
+          if ( browser and msg.src == browser )
+          {
+			recording = true;
+			record();
+          }
+             msg.src = null; 					 // clear message source to avoid confusion
+             continue;
+		on "Browser-URL", "live://record-stop", msg:	 // if browser link Slew Left is clicked
+          if ( browser and msg.src == browser )
+          {
+			recording = false;
+			
+          }
+             msg.src = null; 					 // clear message source to avoid confusion
+             continue;          
 
-
-          
-
-
+		on "Browser-URL", "live://play", msg:	 // if browser link Slew Left is clicked
+          if ( browser and msg.src == browser )
+          {
+			
+			playanim();
+          }
+             msg.src = null; 					 // clear message source to avoid confusion
+             continue;
 
 
           on "Browser-Closed", "", msg:	                         // if browser is Closed
