@@ -102,7 +102,7 @@ class script isclass myscript
 
         browser.SetCloseEnabled(true);
 	browser.SetWindowPosition(Interface.GetDisplayWidth()-320, Interface.GetDisplayHeight() - 525);
-	browser.SetWindowSize(600, 220);
+	browser.SetWindowSize(300, 350);
 //	browser.SetWindowTitle("Crane");
 //	browser.SetWindowStyle(Browser.STYLE_NO_FRAME);
 	browser.SetWindowVisible(true);
