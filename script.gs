@@ -1,21 +1,21 @@
-
+include "multiplayergame.gs"
 include "locomotive.gs"
 include "world.gs"
 include "train.gs"
-include	"tttelocomotive.gs"
 include	"meshobject.gs"
 include "vehicle.gs"
 include "gs.gs"
-include "Browser.gs"
 include "superstub.gs"
 include "asset.gs"
-include "myscript.gs"
-
-class script isclass myscript
+include "tttelocomotive.gs"
+include "gameobjectid.gs"
+class script isclass SSLoco
 {
 
 
-	
+	bool m_bIsForwardPressed, m_bIsBackwardPressed, m_bIsLeftPressed, m_bIsRightPressed;
+	bool Whistling = false;
+	bool Wheeshing = false;
 	bool DeRailed = false;
 	bool BrowserClosed;
 	bool HasFocus = false;
@@ -23,22 +23,23 @@ class script isclass myscript
 	bool Dial2 = false;
 	bool recording = false;
 	bool playing = false;
-	float eyeframe;
-    float eyerotation;
 	float version;
+
 	float pithing = 3.1415/180;
-	
+	Library Codelib;
+
 	
 	thread void VehicleMonitor(void);
 	thread void ScanBrowser(void);
-	thread void SliderCheck(void);
-	thread void DialCheck(void);
+	thread void EyeCheck(void);
+	thread void MultiplayerBroadcast(void);	
 	thread void record(void);
 	thread void playanim(void);
+	thread void SliderCheck(void);
+	thread void DialCheck(void);
 	void ConstructBrowser();
-	void sniffMyTrain(void);
 	void SliderApply(void);
-	
+	void sniffMyTrain(void);
 	Browser browser;
 	Train myTrain;
 
@@ -46,42 +47,180 @@ class script isclass myscript
 	float eyeud = 0.0;
 	float eyer = 0.0;
 	
+	int submesh = 1;
+	Soup submeshes;
+	
+	int lerpcount = 1;
+	float eyelrprev = 0.0;
+	float eyeudprev = 0.0;
+	int lerpres = 4;
+	
+	
 	
 	float[] lrframes;
 	float[] udframes;
 	float[] rframes;	
 	
-
+	
    public void Init(void) {
       inherited();
-        AddHandler(me, "Vehicle", "Coupled", "VehicleCoupleHandler");
-		//AddHandler(me, "Vehicle", "Decoupled", "VehicleDecoupleHandler");
 		
-		if(me.GetMyTrain())
-        {
-		  //SetMeshAnimationFrame("eyes",30,1.0);
+		
+		
+		
+		AddHandler(me, "Eyescript", "Up", "HandleKeyForward");
+		AddHandler(me, "Eyescript", "UpR", "HandleKeyForwardUp");
+		AddHandler(me, "Eyescript", "Down", "HandleKeyBackward");
+		AddHandler(me, "Eyescript", "DownR", "HandleKeyBackwardUp");
+		AddHandler(me, "Eyescript", "Left", "HandleKeyLeft");
+		AddHandler(me, "Eyescript", "LeftR", "HandleKeyLeftUp");
+		AddHandler(me, "Eyescript", "Right", "HandleKeyRight");
+		AddHandler(me, "Eyescript", "RightR", "HandleKeyRightUp");
+		
+		
+		AddHandler(me, "Eyescript", "FLeft", "HandleKeyFLeft");
+		AddHandler(me, "Eyescript", "FRight", "HandleKeyFRight");
+		AddHandler(me, "Eyescript", "Whs", "HandleWheesh");
+		AddHandler(me, "Eyescript", "WhsUp", "HandleWheeshUp");
+		
+		
+		
+		//MULTIPLAYER HANDLER
+		AddHandler(me, "EyescriptMP", "update", "MPUpdate");
+		
+		
+		Codelib = World.GetLibrary(GetAsset().LookupKUIDTable("codelib"));
+		
+		myTrain = me.GetMyTrain();
+		
 
-          sniffMyTrain();                     // resets myTrain
-	  myTrain.SetPantographState(0);      // start with panto down.  Any value for pantograph
-                                              // greater than 0 will cause the crane control browser
-                                              // to be opened.
-
-          version = World.GetTrainzVersion();
-//          HasFocus = true;
-		  //playing=false;
-          VehicleMonitor();
-          ScanBrowser();
-		  //SliderCheck();
-        }
+		
+		submeshes = me.GetAsset().GetConfigSoup().GetNamedSoup("extensions").GetNamedSoup("submeshes-122285");
+		
+		
+        version = World.GetTrainzVersion();
+		sniffMyTrain();
+		EyeCheck();
+		MultiplayerBroadcast();
+        VehicleMonitor();
+        ScanBrowser();
    }
 
 
+	 
 
-
-	void VehicleCoupleHandler(Message msg) {
-	SetMeshAnimationFrame("default",0.0);      // move the animation to frame 5 instantaneously
-	SetMeshAnimationState("default", true);
+	 
+	 
+	 
+	float Lerp(float from, float to, float t)
+	{
+		return (from + (to - from)*t);
 	}
+	
+	 
+	 
+	 	
+	void SliderApply() {
+	
+		SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
+		SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
+
+	}
+	 
+	 
+
+thread void record()
+{
+	lrframes = new float[0];
+	udframes = new float[0];
+	rframes = new float[0];	
+	while(recording == true)
+	{
+		udframes[udframes.size()] = eyeud;
+		rframes[rframes.size()] = eyer;
+		lrframes[lrframes.size()] = eyelr;
+		Sleep(0.04);
+	}
+}
+
+
+thread void playanim()
+{
+playing = true;
+  int n;
+  for (n = 0; n < udframes.size(); n++) {
+	SetMeshOrientation("eye_l", udframes[n], rframes[n], lrframes[n]);
+	SetMeshOrientation("eye_r", udframes[n], rframes[n], lrframes[n]);
+	Sleep(0.04);
+  }
+  playing=false;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+void ConstructBrowser()
+{
+        browser = null;
+        if ( !browser )	browser = Constructors.NewBrowser();
+
+        browser.SetCloseEnabled(true);
+	browser.SetWindowPosition(Interface.GetDisplayWidth()-320, Interface.GetDisplayHeight() - 525);
+	browser.SetWindowSize(300, 350);
+	browser.SetWindowVisible(true);
+	browser.LoadHTMLFile(GetAsset(), "ui.html");
+	BrowserClosed = false;
+}
+
+
+
+thread void VehicleMonitor()
+{                                // runs continuously
+   bool donkey = false;
+   bool AI_on = false;
+
+   sniffMyTrain();               // resets myTrain..
+
+
+   while (! DeRailed)
+     {
+        sniffMyTrain();
+
+        if (AI_on and (myTrain.GetAutopilotMode() == Train.CONTROL_MANUAL) and (version < 3.5))
+        {
+          AI_on = false;
+        }
+        if ((version > 3.4) and !HasFocus)
+        {
+            browser = null;  // close browser if train is moving
+            BrowserClosed = true;
+        }
+
+        if ((myTrain.GetAutopilotMode() == Train.CONTROL_MANUAL) and ((version<= 3.4) or ((version > 3.4) and HasFocus)))
+        {
+
+          if (BrowserClosed) { ConstructBrowser(); BrowserClosed = false; }
+          Sleep(0.5);
+        }
+        if (myTrain.GetAutopilotMode() != Train.CONTROL_MANUAL) AI_on = true;
+
+        Sleep(0.5);
+    }
+ }
+
+
+
+
+
     void sniffMyTrain() {
         Train oldTrain = myTrain;
         myTrain = me.GetMyTrain();
@@ -95,81 +234,13 @@ class script isclass myscript
            Sniff(myTrain, "Train", "", true);
         }
     }
-	void ConstructBrowser()
-   {
-        browser = null;
-        if ( !browser )	browser = Constructors. NewBrowser();
-
-        browser.SetCloseEnabled(true);
-	browser.SetWindowPosition(Interface.GetDisplayWidth()-320, Interface.GetDisplayHeight() - 525);
-	browser.SetWindowSize(300, 350);
-//	browser.SetWindowTitle("Crane");
-//	browser.SetWindowStyle(Browser.STYLE_NO_FRAME);
-	browser.SetWindowVisible(true);
-	browser.LoadHTMLFile(GetAsset(), "ui.html");
-	BrowserClosed = false;
-   }
 
 
-     public string GetDescriptionHTML(void)
-     {
-	string html = inherited();
-	html = html + "<table><tr><td><img src='PEV.tga' width=350 height=50>";
-	html = html + "</td></tr><tr><td>"
-	+ "<font color=#FFFFFF size=1>"
-	+ "<b>OPERATION</b><br></font>"
-	+ "<font color=#FFFFFF size=1>"
-	+ "The crane controls are enabled automatically in TS12 and "
-        + "by pressing the Pantographs button in TS2009 and TS2010 "
-	+ "when the Crane Loco is selected when stationary. "
-	+ "The slewing, jib raise-lower and hook raise-lower are "
-	+ "controlled by clicking on the appropriate the arrow buttons."
-        + "To stop movement press button again.<br>"
-	+ "Moving the loco on the track closes the "
-	+ "crane controls display in TS12."
-	+ "<br><br>"
-	+ "<font color=#FFFFFF size=1>"
-	+ "<b>CONFIGURATION</b><br></font>"
-	+ "<font color=#FFFFFF size=1>"
-	+ "None required.";
-	html = html + "</font></td></tr></table></body></html>";
-	return html;
-     }
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
 
-	
-	
-	thread void SliderCheck() {
+
+
+thread void SliderCheck() {
 	while(Dial == true){
 		
 			//browser.SetTrainzText("lrtext","init");
@@ -211,36 +282,7 @@ class script isclass myscript
 			Sleep(0.04);
 		}
 	}
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 	
-	void SliderApply() {
 
-		
-		
-		SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
-		SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
-		
-
-	}
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
-	 
 	 
 thread void DialCheck()
 {
@@ -269,110 +311,279 @@ thread void DialCheck()
 }
 
 
+	//MULTIPLAYER HANDLING
+
+	thread void MultiplayerBroadcast() {
+		while(true)
+		{
+			DriverCharacter driver = me.GetMyTrain().GetActiveDriver();
+			if (MultiplayerGame.IsActive() and driver and driver.IsLocalPlayerOwner()) { 
+				//CHECK FOR CLIENT OWNERSHIP, OTHERWISE IT WILL GET MESSY
+
+				//me should be train, inherits right?
 
 
-
-thread void record()
-{
-	lrframes = new float[0];
-	udframes = new float[0];
-	rframes = new float[0];	
-	while(recording == true)
-	{
-		udframes[udframes.size()] = eyeud;
-		rframes[rframes.size()] = eyer;
-		lrframes[lrframes.size()] = eyelr;
-		Sleep(0.04);
+				//this thread will package up data and send it across the server to be listened for, figure out how to parse individually TBA
+				//individual engine ID?
+			
+				Soup senddata = Constructors.NewSoup();       // this soup will be empty
+				senddata.SetNamedTag("eyeud",eyeud);
+				senddata.SetNamedTag("eyelr",eyelr);
+				senddata.SetNamedTag("eyer",eyer);
+				senddata.SetNamedTag("submesh",submesh);
+				senddata.SetNamedTag("wheesh",Wheeshing);
+				senddata.SetNamedTag("id",me.GetGameObjectID());
+				MultiplayerGame.BroadcastGameplayMessage("EyescriptMP", "update", senddata);
+				//MultiplayerGame.SendGameplayMessageToServer("EyescriptMP", "update", senddata); //Send to the host too!!!!
+				//Interface.Print("Multiplayer Data Sent!");
+				
+			}
+			Sleep(0.12); // don't go too crazy with data
+		}
 	}
-}
 
+	 
+	 
+	 
+	public void MPUpdate(Message msg)
+	{
+		Soup ReceivedData = msg.paramSoup;
+		
+		DriverCharacter driver = me.GetMyTrain().GetActiveDriver();
+		if(driver.IsLocalPlayerOwner() == false and me.GetGameObjectID().DoesMatch(ReceivedData.GetNamedTagAsGameObjectID("id"))) //this might not work idk
+		{
+			//Interface.Print("Data Confirmed!");
+			float Reyeud = ReceivedData.GetNamedTagAsFloat("eyeud");
+			float Reyelr = ReceivedData.GetNamedTagAsFloat("eyelr");
+		
+			int Rsubmesh = ReceivedData.GetNamedTagAsInt("submesh");
 
-thread void playanim()
-{
-playing = true;
-  int n;
-  for (n = 0; n < udframes.size(); n++) {
-	SetMeshOrientation("eye_l", udframes[n], rframes[n], lrframes[n]);
-	SetMeshOrientation("eye_r", udframes[n], rframes[n], lrframes[n]);
-	Sleep(0.04);
-  }
-  playing=false;
-}
+			eyeud = Reyeud;
+			eyelr = Reyelr;
+			if(submesh != Rsubmesh)
+			{
+				submesh = Rsubmesh;
+				string tagname = submeshes.GetIndexedTagName(submesh);
+				PostMessage(me, "SS-122285", "Submesh" + "," + tagname,0.0);
+			}
+			
+			bool Rwheesh = ReceivedData.GetNamedTagAsBool("wheesh");
+			
+			if(Rwheesh and !Wheeshing)
+			{
+				PostMessage(me, "pfx", "+4",0.0);
+			} else if(!Rwheesh and Wheeshing) {
+				PostMessage(me, "pfx", "-4",0.0);
+			}
+		}
+	}
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+	thread void EyeCheck() {
+	 
+		while(true)
+		{
 
+			if(lerpcount < lerpres){
+				lerpcount = lerpcount + 1;
+			} else {
+				lerpcount = 1;
+				eyeudprev = eyeud;
+				eyelrprev = eyelr;
+			}
+	 
+	 
+			SetMeshOrientation("eye_l", Lerp(eyeudprev, eyeud, lerpcount/lerpres), eyer, Lerp(eyelrprev, eyelr, lerpcount/lerpres));
+			SetMeshOrientation("eye_r", Lerp(eyeudprev, eyeud, lerpcount/lerpres), eyer, Lerp(eyelrprev, eyelr, lerpcount/lerpres));
 
-
-
-
-
-
-
-
-
-
-
-
-thread void VehicleMonitor()
-{                                // runs continuously
-   bool donkey = false;
-   bool AI_on = false;
-   int panto;
-   sniffMyTrain();               // resets myTrain..
-
-   panto = myTrain.GetPantographState();
-   if (panto>0) myTrain.SetPantographState(0);
-//   float TE = GetMaximumTractiveEffort();
-
-   while (! DeRailed)
-     {
-        sniffMyTrain();
-
-        // pantographs are automatically raised whenever the train is set to run in AI.
-        // We need to ignore this so check if AI is on. (or manual control is off)
-        // The crane is a steam loco so pantograph should be down when in manual control.
-        if (AI_on and (myTrain.GetAutopilotMode() == Train.CONTROL_MANUAL) and (version < 3.5))
-        {
-          AI_on = false;
-          myTrain.SetPantographState(0);
-        }
-        if ((version > 3.4) and !HasFocus)
-        {
-            browser = null;  // close browser if train is moving
-            BrowserClosed = true;
-        }
-
-        panto = myTrain.GetPantographState();
-        if ((myTrain.GetAutopilotMode() == Train.CONTROL_MANUAL) and (((panto>0) and (version<= 3.4)) or ((version > 3.4) and HasFocus)))
-        {
-          if (version < 3.5) myTrain.SetPantographState(0);
-
-          if (BrowserClosed) { ConstructBrowser(); BrowserClosed = false; }
-          Sleep(0.5);
-        }
-        if (myTrain.GetAutopilotMode() != Train.CONTROL_MANUAL) AI_on = true;
 
 		
-		
-		
-		
-		
-		
-		
-		
-		
+			Sleep(0.01); //.2 rate
+		}
+	 }
 
-        Sleep(0.5);
-    }
- }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
 	
 	
-thread void ScanBrowser() {
-   float frame;
-   float ttime;
-   Message msg;
+	
+	
+	
+	
+
+	
+
+	
+	public void HandleKeyForward(Message msg)
+	{
+		//implement all 4 later for keyboard support
+	}
+  
+	public void HandleKeyForwardUp(Message msg)
+	{
+    //m_bIsForwardPressed = false;
+	
+	}
+	public void HandleKeyBackward(Message msg)
+	{
+	eyeudprev = eyeud;
+	Soup parameters = msg.paramSoup;
+	parameters.GetNamedTagAsFloat("control-value");
+    eyeud = -(parameters.GetNamedTagAsFloat("control-value") - 0.5)/1;
+	//eyeud = 0.5;
+	//SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
+	//SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
+	
+	}
+  
+	public void HandleKeyBackwardUp(Message msg)
+	{
+    //m_bIsBackwardPressed = false;
+	
+	}
+  
+	public void HandleKeyLeft(Message msg)
+	{
+	eyelrprev = eyelr;
+	Soup parameters = msg.paramSoup;
+	parameters.GetNamedTagAsFloat("control-value");
+    eyelr = (parameters.GetNamedTagAsFloat("control-value") - 0.5)/1;
+	//eyeud = 0.5;
+	//SetMeshOrientation("eye_l", eyeud, eyer, eyelr);
+	//SetMeshOrientation("eye_r", eyeud, eyer, eyelr);
+	
+	}
+  
+	public void HandleKeyLeftUp(Message msg)
+	{
+    //m_bIsLeftPressed = false;
+	
+	}
+  
+	public void HandleKeyRight(Message msg)
+	{
+
+	
+	}
+  
+	public void HandleKeyRightUp(Message msg)
+	{
+    //m_bIsRightPressed = false;
+	
+	}
+	
+	
+	
+	//from meshobject
+	// <bi MeshObject Messages><br>
+//
+// {[ Major               | Minor               | Source       | Destination                 ]
+//  [ "Animation-Event"   | event name          | mesh object  | mesh object                 ]
+//  [ "fx-mesh-attached"  | effect name         | mesh object  | mesh object                 ]
+//  [ "pfx"               | +/-particle number  | anywhere     | object to set particles of  ]}
+//
+	
+	public void HandleKeyFLeft(Message msg)
+	{
+		if (submesh > 1){
+		submesh = submesh - 1;
+		}
+
+		string tagname = submeshes.GetIndexedTagName(submesh);
+		PostMessage(me, "SS-122285", "Submesh" + "," + tagname,0.0);
+		//Interface.Print("Submesh" + "," + tagname);
+	}
+	
+	public void HandleKeyFRight(Message msg)
+	{
+		if (submesh < submeshes.CountTags() - 1){
+		submesh = submesh + 1;
+		}
+		string tagname = submeshes.GetIndexedTagName(submesh);
+		PostMessage(me, "SS-122285", "Submesh" + "," + tagname,0.0);
+		//Interface.Print("Submesh" + "," + tagname);
+	}	
+	
+	
+	
+	
+
+	
+	
+	
+	public void HandleWheesh(Message msg)
+	{
+		//Interface.Print("Starting Wheesh");
+		PostMessage(me, "pfx", "+4",0.0);  
+		
+		Wheeshing = true;
+		
+		//DEBUG MP EMULATION, CHECK BYPASS
+
+
+			
+
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	}	
+	
+	public void HandleWheeshUp(Message msg)
+	{
+		//Interface.Print("Stopping Wheesh");
+		PostMessage(me, "pfx", "-4",0.0);  
+		Wheeshing = false;
+	}		
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	thread void ScanBrowser() {
+		float frame;
+		float ttime;
+		Message msg;
 
 
 
-	wait(){
+		wait(){
 		on "Vehicle", "Derailed", msg:
           {
           if(msg.src == me)
@@ -548,5 +759,6 @@ thread void ScanBrowser() {
      
 		}
 	}
+	
 	
 };
